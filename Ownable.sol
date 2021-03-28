@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: None
 
-pragma solidity >=0.6.0 <0.9.0;
+pragma solidity >=0.7.2 <0.9.0;
 
 import "./Context.sol";
 abstract contract Ownable is Context {

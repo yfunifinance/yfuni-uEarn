@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: none
 
-pragma solidity >=0.5.0 <0.9.0;
+pragma solidity >=0.7.2 <0.9.0;
 
 import "./uEarn.sol";
 
 contract YFUNIuEarn is uEarn{
-    using SafeERC20 for IERC20;
+    using SafeBEP20 for IBEP20;
     using Address for address;
     using SafeMath for uint256;
     
-    mapping (uint => eventStaking) private stakingEvent;
-    mapping (uint => uint256) private totalClaimed;
-    mapping (uint => address) private rewardAddress;
-    mapping (address => mapping (uint => bool)) private eventClaim;
+    mapping (uint256 => eventStaking) private stakingEvent;
+    mapping (uint256 => uint256) private totalClaimed;
+    mapping (uint256 => address) private rewardAddress;
+    mapping (address => mapping (uint256 => bool)) private eventClaim;
     
-    uint private activeEventId;
-    uint[] private events;
+    uint256 private activeEventId;
+    uint256[] private events;
     
     struct eventStaking{
         bool stakeMustActive;
-        uint poolIdGotEvent;
+        uint256 poolIdGotEvent;
         uint256 dateRange1;
         uint256 dateRange2;
         uint256 stakeTimeElapsed;
@@ -35,8 +35,8 @@ contract YFUNIuEarn is uEarn{
     
     struct userLooker{
         bool activestake;
-        uint periodChoosed;
-        uint pairChoosed;
+        uint256 periodChoosed;
+        uint256 pairChoosed;
         uint256 amountstaked;
         uint256 startstake;
         uint256 reaminingReward;
@@ -46,7 +46,7 @@ contract YFUNIuEarn is uEarn{
         _setAdmin(data);
     }
     
-    function createNewEvent(uint specificPoolId, uint256 startDateFilter, uint256 endDateFilter, uint256 specificElapsedTime, uint256 totalReward) public payable virtual onlyOwner{
+    function createNewEvent(uint256 specificPoolId, uint256 startDateFilter, uint256 endDateFilter, uint256 specificElapsedTime, uint256 totalReward) external payable virtual onlyOwner nonReentrant{
         (
             uint8 pair2decimal,
             address pair2address,
@@ -60,8 +60,8 @@ contract YFUNIuEarn is uEarn{
         require(getPoolBalance(sp.pair2address) > getRewardAllocation(sp.pair2address), "Pool reward must greater than reward allocation");
         
         address msgSender = _msgSender();
-        uint getEventLength = events.length;
-        uint newEventId = getEventLength + 1;
+        uint256 getEventLength = events.length;
+        uint256 newEventId = getEventLength.add(1);
         
         eventStaking storage ev = stakingEvent[newEventId];
         
@@ -76,9 +76,9 @@ contract YFUNIuEarn is uEarn{
         if(sp.pair2address == address(0)){
             require(msg.value >= totalReward, "Value reward must same with argument");
         }else{
-            uint256 getallowance = IERC20(sp.pair2address).allowance(msgSender, address(this));
+            uint256 getallowance = IBEP20(sp.pair2address).allowance(msgSender, address(this));
             require(getallowance >= totalReward, "Insufficient token approval balance, you must increase your allowance" );
-            IERC20(sp.pair2address).safeTransferFrom(msgSender, address(this), totalReward);
+            IBEP20(sp.pair2address).safeTransferFrom(msgSender, address(this), totalReward);
         }
         
         rewardAddress[newEventId] = sp.pair2address;
@@ -86,14 +86,14 @@ contract YFUNIuEarn is uEarn{
         events.push(newEventId);
     }
     
-    function closeActiveEvent() public virtual onlyOwner{
+    function closeActiveEvent() external virtual onlyOwner nonReentrant{
         eventStaking storage ev = stakingEvent[activeEventId];
         uint256 ream = ev.totalReward.sub(totalClaimed[activeEventId]);
         totalClaimed[activeEventId] = totalClaimed[activeEventId].add(ream);
         activeEventId = 0;
     }
     
-    function userEventClaim() public virtual{
+    function userEventClaim() external virtual nonReentrant{
         address msgSender = _msgSender();
         
         require(checkEligibleUser(msgSender, activeEventId) == true, "Unfortunately, you not eligible");
@@ -105,11 +105,11 @@ contract YFUNIuEarn is uEarn{
         if(viewActiveRewardAddress() == address(0)){
             payable(msgSender).transfer(getUserAllocationReward);
         }else{
-            IERC20(viewActiveRewardAddress()).safeTransfer(msgSender, getUserAllocationReward);
+            IBEP20(viewActiveRewardAddress()).safeTransfer(msgSender, getUserAllocationReward);
         }
     }
     
-    function viewDetailEvent(uint eventId) public view returns(bool, uint, uint256, uint256, uint256, uint256, uint256){
+    function viewDetailEvent(uint256 eventId) public view returns(bool, uint, uint256, uint256, uint256, uint256, uint256){
         eventStaking storage ev = stakingEvent[eventId];
         
         return(
@@ -123,7 +123,7 @@ contract YFUNIuEarn is uEarn{
         );
     }
     
-    function viewReaminingReward(uint eventId) public view returns(uint256){
+    function viewReaminingReward(uint256 eventId) public view returns(uint256){
         eventStaking storage ev = stakingEvent[eventId];
         uint256 ream = ev.totalReward.sub(totalClaimed[eventId]);
         return ream;
@@ -137,7 +137,7 @@ contract YFUNIuEarn is uEarn{
         return rewardAddress[activeEventId];
     }
     
-    function checkEligibleUser(address participant, uint eventId) public view returns(bool){
+    function checkEligibleUser(address participant, uint256 eventId) public view returns(bool){
         bool eligibledUser = false;
         
         if(eventClaim[participant][eventId] == false){
@@ -149,11 +149,11 @@ contract YFUNIuEarn is uEarn{
         return eligibledUser;
     }
     
-    function userRewardCalculator(address participant, uint eventId) public view returns(uint256){
+    function userRewardCalculator(address participant, uint256 eventId) public view returns(uint256){
         (
             bool activestake,
-            uint periodChoosed,
-            uint pairChoosed,
+            uint256 periodChoosed,
+            uint256 pairChoosed,
             uint256 amountstaked,
             uint256 startstake,
             uint256 reaminingReward
@@ -176,11 +176,11 @@ contract YFUNIuEarn is uEarn{
         return getUserReward;
     }
     
-    function _checkEligibleEvent(address participant, uint eventId) internal view returns(bool){
+    function _checkEligibleEvent(address participant, uint256 eventId) internal view returns(bool){
         (
             bool activestake,
-            uint periodChoosed,
-            uint pairChoosed,
+            uint256 periodChoosed,
+            uint256 pairChoosed,
             uint256 amountstaked,
             uint256 startstake,
             uint256 reaminingReward
